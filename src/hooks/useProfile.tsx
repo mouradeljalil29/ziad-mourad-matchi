@@ -47,6 +47,16 @@ export function useProfileById(profileId: string | undefined) {
   });
 }
 
+/** Strip fields that may not yet exist in DB to avoid schema-cache errors. */
+function sanitizeProfileData<T extends Record<string, unknown>>(raw: T): T {
+  const copy = { ...raw };
+  // contact_email requires a migration; remove if empty so inserts don't break
+  if (!copy.contact_email) {
+    delete copy.contact_email;
+  }
+  return copy;
+}
+
 export function useCreateProfile() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -54,10 +64,12 @@ export function useCreateProfile() {
   return useMutation({
     mutationFn: async (profile: Omit<ProfileInsert, "user_id">) => {
       if (!user) throw new Error("Not authenticated");
-      
+
+      const clean = sanitizeProfileData({ ...profile, user_id: user.id });
+
       const { data, error } = await supabase
         .from("profiles")
-        .insert({ ...profile, user_id: user.id })
+        .insert(clean)
         .select()
         .single();
 
@@ -77,10 +89,12 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: async (profile: ProfileUpdate) => {
       if (!user) throw new Error("Not authenticated");
-      
+
+      const clean = sanitizeProfileData(profile);
+
       const { data, error } = await supabase
         .from("profiles")
-        .update(profile)
+        .update(clean)
         .eq("user_id", user.id)
         .select()
         .single();
