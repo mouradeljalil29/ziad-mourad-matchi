@@ -116,6 +116,8 @@ export function useMatches() {
   });
 }
 
+const REQUESTS_PER_DAY_LIMIT = 10;
+
 export function useCheckExistingRequest(toUserId: string | undefined) {
   const { user } = useAuth();
 
@@ -130,12 +132,39 @@ export function useCheckExistingRequest(toUserId: string | undefined) {
         .or(
           `and(from_user_id.eq.${user.id},to_user_id.eq.${toUserId}),and(from_user_id.eq.${toUserId},to_user_id.eq.${user.id})`
         )
-        .maybeSingle();
+        .order("created_at", { ascending: false });
 
-      if (error && error.code !== "PGRST116") throw error;
-      return data;
+      if (error) throw error;
+      // Return first (most recent) if any exists
+      return Array.isArray(data) && data.length > 0 ? data[0] : null;
     },
     enabled: !!user && !!toUserId,
+  });
+}
+
+/** Count of requests sent today by current user (for cooldown). */
+export function useRequestsSentToday() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["match_requests", "sent_today", user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const iso = startOfDay.toISOString();
+
+      const { count, error } = await supabase
+        .from("match_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("from_user_id", user.id)
+        .gte("created_at", iso);
+
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!user,
   });
 }
 
@@ -144,25 +173,69 @@ export function useSendRequest() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ toUserId, message }: { toUserId: string; message?: string }) => {
+    mutationFn: async ({
+      toUserId,
+      message,
+      requestsSentToday,
+      existingRequest,
+    }: {
+      toUserId: string;
+      message?: string;
+      requestsSentToday?: number;
+      existingRequest?: MatchRequest | null;
+    }) => {
       if (!user) throw new Error("Not authenticated");
+
+      if (toUserId === user.id) {
+        throw new Error("You cannot send a request to yourself.");
+      }
+
+      const sentToday = requestsSentToday ?? 0;
+      if (sentToday >= REQUESTS_PER_DAY_LIMIT) {
+        throw new Error(
+          "You've reached the daily limit of 10 requests. Try again tomorrow."
+        );
+      }
+
+      if (existingRequest) {
+        if (existingRequest.status === "accepted") {
+          throw new Error("You are already matched with this person.");
+        }
+        if (existingRequest.status === "pending") {
+          if (existingRequest.from_user_id === user.id) {
+            throw new Error("You already have a pending request sent to this person.");
+          }
+          throw new Error("This person has already sent you a request. Check your Requests page to accept.");
+        }
+      }
+
+      const sanitizedMessage =
+        typeof message === "string" && message.trim().length > 0
+          ? message.trim().slice(0, 500)
+          : null;
 
       const { data, error } = await supabase
         .from("match_requests")
         .insert({
           from_user_id: user.id,
           to_user_id: toUserId,
-          message,
+          message: sanitizedMessage,
           status: "pending",
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === "23505") {
+          throw new Error("A request already exists between you and this person.");
+        }
+        throw error;
+      }
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["match_requests"] });
+      queryClient.invalidateQueries({ queryKey: ["matches"] });
     },
   });
 }

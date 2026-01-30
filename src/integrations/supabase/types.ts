@@ -49,6 +49,7 @@ export type Database = {
           availability: Database["public"]["Enums"]["availability_type"] | null
           bio: string | null
           city: string | null
+          contact_email: string | null
           contact_preference:
             | Database["public"]["Enums"]["contact_preference_type"]
             | null
@@ -71,6 +72,7 @@ export type Database = {
           availability?: Database["public"]["Enums"]["availability_type"] | null
           bio?: string | null
           city?: string | null
+          contact_email?: string | null
           contact_preference?:
             | Database["public"]["Enums"]["contact_preference_type"]
             | null
@@ -93,6 +95,7 @@ export type Database = {
           availability?: Database["public"]["Enums"]["availability_type"] | null
           bio?: string | null
           city?: string | null
+          contact_email?: string | null
           contact_preference?:
             | Database["public"]["Enums"]["contact_preference_type"]
             | null
@@ -112,6 +115,43 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      match_notes: {
+        Row: {
+          id: string
+          match_id: string
+          owner_user_id: string
+          note_text: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          match_id: string
+          owner_user_id: string
+          note_text?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          match_id?: string
+          owner_user_id?: string
+          note_text?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_notes_match_id_fkey"
+            columns: ["match_id"]
+            referencedRelation: "match_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_notes_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {

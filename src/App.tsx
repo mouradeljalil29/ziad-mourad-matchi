@@ -16,7 +16,9 @@ import Discover from "./pages/Discover";
 import Requests from "./pages/Requests";
 import Matches from "./pages/Matches";
 import Settings from "./pages/Settings";
+import SeedDemo from "./pages/SeedDemo";
 import NotFound from "./pages/NotFound";
+import { isDevMode } from "./lib/dev";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +90,16 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {isDevMode && (
+        <Route
+          path="/seed-demo"
+          element={
+            <ProtectedRoute>
+              <SeedDemo />
+            </ProtectedRoute>
+          }
+        />
+      )}
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />

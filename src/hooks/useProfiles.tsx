@@ -8,31 +8,35 @@ export type AvailabilityType = Enums<"availability_type">;
 export type ProjectType = Enums<"project_type">;
 export type LookingForType = Enums<"looking_for_type">;
 
+const DISCOVER_PAGE_SIZE = 12;
+
 interface ProfileFilters {
   search?: string;
   skills?: string[];
   availability?: AvailabilityType | "all";
   projectType?: ProjectType | "all";
   lookingFor?: LookingForType | "all";
+  page?: number;
+  pageSize?: number;
 }
 
 export function useProfiles(filters: ProfileFilters = {}) {
   const { user } = useAuth();
+  const page = filters.page ?? 1;
+  const pageSize = filters.pageSize ?? DISCOVER_PAGE_SIZE;
 
   return useQuery({
     queryKey: ["profiles", filters],
     queryFn: async () => {
       let query = supabase
         .from("profiles")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("is_visible", true);
 
-      // Exclude current user
       if (user) {
         query = query.neq("user_id", user.id);
       }
 
-      // Apply filters
       if (filters.availability && filters.availability !== "all") {
         query = query.eq("availability", filters.availability as AvailabilityType);
       }
@@ -49,11 +53,10 @@ export function useProfiles(filters: ProfileFilters = {}) {
 
       if (error) throw error;
 
-      let results = data as Profile[];
+      let results = (data ?? []) as Profile[];
 
-      // Client-side filtering for search and skills
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
+      if (filters.search && filters.search.trim()) {
+        const searchLower = filters.search.trim().toLowerCase();
         results = results.filter(
           (p) =>
             p.display_name?.toLowerCase().includes(searchLower) ||
@@ -68,40 +71,48 @@ export function useProfiles(filters: ProfileFilters = {}) {
         );
       }
 
-      return results;
+      const total = results.length;
+      const start = (page - 1) * pageSize;
+      const paginated = results.slice(start, start + pageSize);
+
+      return { data: paginated, total };
     },
     enabled: !!user,
   });
 }
 
+export { DISCOVER_PAGE_SIZE };
+
+/** Match score 0–100: project_type +30, shared skills +10 each (cap 40), availability +15, looking_for +15 */
 export function calculateMatchScore(profile: Profile, myProfile: Profile | null): number {
   if (!myProfile) return 0;
-  
+
   let score = 0;
 
-  // Shared skills (most important)
-  const sharedSkills = profile.skills?.filter((s) => myProfile.skills?.includes(s)) || [];
-  score += sharedSkills.length * 10;
-
-  // Same project type
-  if (profile.preferred_project_type === myProfile.preferred_project_type) {
-    score += 20;
+  // +30 if preferred_project_type matches or either is "any"
+  const myType = myProfile.preferred_project_type;
+  const theirType = profile.preferred_project_type;
+  if (myType === "any" || theirType === "any" || myType === theirType) {
+    score += 30;
   }
 
-  // Same availability
-  if (profile.availability === myProfile.availability) {
+  // +10 per shared skill, cap at +40
+  const sharedSkills = profile.skills?.filter((s) => myProfile.skills?.includes(s)) || [];
+  score += Math.min(sharedSkills.length * 10, 40);
+
+  // +15 if availability matches or either is "flexible"
+  const myAvail = myProfile.availability;
+  const theirAvail = profile.availability;
+  if (myAvail === "flexible" || theirAvail === "flexible" || myAvail === theirAvail) {
     score += 15;
   }
 
-  // Same looking_for
-  if (profile.looking_for === myProfile.looking_for) {
-    score += 10;
+  // +15 if looking_for matches or either is "any"
+  const myLooking = myProfile.looking_for;
+  const theirLooking = profile.looking_for;
+  if (myLooking === "any" || theirLooking === "any" || myLooking === theirLooking) {
+    score += 15;
   }
 
-  // Same level
-  if (profile.level === myProfile.level) {
-    score += 5;
-  }
-
-  return score;
+  return Math.min(score, 100);
 }

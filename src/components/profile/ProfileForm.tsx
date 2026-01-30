@@ -43,6 +43,7 @@ export function ProfileForm({ profile, onSubmit, isLoading }: ProfileFormProps) 
     preferred_project_type: profile?.preferred_project_type || "any",
     looking_for: profile?.looking_for || "binome",
     contact_preference: profile?.contact_preference || "in-app",
+    contact_email: profile?.contact_email || "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -316,6 +317,25 @@ export function ProfileForm({ profile, onSubmit, isLoading }: ProfileFormProps) 
                 </SelectContent>
               </Select>
             </div>
+
+            {formData.contact_preference === "email" && (
+              <div className="space-y-2">
+                <Label htmlFor="contact_email">Contact email</Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  value={formData.contact_email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, contact_email: e.target.value })
+                  }
+                  placeholder="you@example.com"
+                  maxLength={255}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Shown to your matches so they can reach you
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

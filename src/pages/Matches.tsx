@@ -1,19 +1,101 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SkillBadge } from "@/components/ui/skill-badge";
 import { useMatches } from "@/hooks/useMatchRequests";
+import { useMatchNote, useUpsertMatchNote } from "@/hooks/useMatchNotes";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Heart, 
-  Mail, 
+import {
+  Heart,
+  Mail,
   MessageCircle,
   MapPin,
   GraduationCap,
-  ArrowRight
+  ArrowRight,
+  StickyNote,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { CONTACT_PREFERENCE_OPTIONS } from "@/lib/constants";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+
+function MatchNoteSection({
+  matchId,
+  partnerName,
+}: {
+  matchId: string;
+  partnerName: string;
+}) {
+  const { data: note, isLoading } = useMatchNote(matchId);
+  const upsert = useUpsertMatchNote(matchId);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(note?.note_text ?? "");
+
+  useEffect(() => {
+    setDraft(note?.note_text ?? "");
+  }, [note?.note_text]);
+
+  const handleSave = async () => {
+    try {
+      await upsert.mutateAsync(draft);
+    } catch {
+      /* toast in parent if needed */
+    }
+  };
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="mt-3">
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-2 w-full justify-start">
+          <StickyNote className="h-4 w-4" />
+          Notes
+          {note?.note_text ? (
+            <span className="text-muted-foreground font-normal truncate">
+              — {note.note_text.slice(0, 30)}…
+            </span>
+          ) : null}
+          {open ? (
+            <ChevronUp className="h-4 w-4 ml-auto" />
+          ) : (
+            <ChevronDown className="h-4 w-4 ml-auto" />
+          )}
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="pt-2 space-y-2">
+          {isLoading ? (
+            <Skeleton className="h-20 w-full" />
+          ) : (
+            <>
+              <Textarea
+                placeholder={`Private notes about ${partnerName}…`}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                maxLength={2000}
+                rows={3}
+                className="resize-none"
+              />
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={upsert.isPending}
+              >
+                Save note
+              </Button>
+            </>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 export default function Matches() {
   const { data: matches, isLoading } = useMatches();
@@ -41,16 +123,18 @@ export default function Matches() {
               const contactLabel = CONTACT_PREFERENCE_OPTIONS.find(
                 (o) => o.value === profile?.contact_preference
               )?.label;
+              const prefersEmail = profile?.contact_preference === "email";
+              const contactEmail = profile?.contact_email;
 
               return (
                 <Card key={match.id} className="animate-fade-in overflow-hidden">
                   <CardContent className="pt-6">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
                         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-primary text-primary-foreground font-bold text-xl shrink-0">
                           {profile?.display_name?.charAt(0).toUpperCase() || "?"}
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-2 min-w-0 flex-1">
                           <div>
                             <Link
                               to={`/profile/${profile?.id}`}
@@ -83,22 +167,43 @@ export default function Matches() {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            {profile?.contact_preference === "email" ? (
-                              <Mail className="h-4 w-4" />
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                            {prefersEmail ? (
+                              <Mail className="h-4 w-4 shrink-0" />
                             ) : (
-                              <MessageCircle className="h-4 w-4" />
+                              <MessageCircle className="h-4 w-4 shrink-0" />
                             )}
                             Prefers: {contactLabel}
                           </div>
+
+                          {/* Contact action */}
+                          <div className="flex flex-wrap gap-2">
+                            {prefersEmail && contactEmail ? (
+                              <a href={`mailto:${contactEmail}`}>
+                                <Button variant="outline" size="sm" className="gap-2">
+                                  <Mail className="h-4 w-4" />
+                                  Contact (email)
+                                </Button>
+                              </a>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                In-app: use Notes below to keep track of this match.
+                              </span>
+                            )}
+                            <Link to={`/profile/${profile?.id}`}>
+                              <Button variant="outline" size="sm" className="gap-2 shrink-0">
+                                View Profile
+                                <ArrowRight className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                          </div>
+
+                          <MatchNoteSection
+                            matchId={match.id}
+                            partnerName={profile?.display_name ?? "Partner"}
+                          />
                         </div>
                       </div>
-                      <Link to={`/profile/${profile?.id}`}>
-                        <Button variant="outline" className="gap-2 shrink-0">
-                          View Profile
-                          <ArrowRight className="h-4 w-4" />
-                        </Button>
-                      </Link>
                     </div>
                   </CardContent>
                 </Card>
@@ -112,7 +217,8 @@ export default function Matches() {
             </div>
             <h3 className="text-lg font-semibold mb-2">No matches yet</h3>
             <p className="text-muted-foreground mb-4">
-              When you and another student both accept each other's requests, you'll be matched!
+              When you and another student both accept each other's requests,
+              you'll be matched!
             </p>
             <Link to="/discover">
               <Button className="bg-gradient-primary hover:opacity-90">

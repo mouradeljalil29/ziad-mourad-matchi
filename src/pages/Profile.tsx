@@ -4,6 +4,8 @@ import { ProfileForm } from "@/components/profile/ProfileForm";
 import { useProfile, useCreateProfile, useUpdateProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getProfileCompleteness } from "@/lib/profileCompleteness";
+import { Progress } from "@/components/ui/progress";
 
 export default function Profile() {
   const { data: profile, isLoading: profileLoading } = useProfile();
@@ -11,6 +13,7 @@ export default function Profile() {
   const updateProfile = useUpdateProfile();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const completeness = getProfileCompleteness(profile);
 
   const handleSubmit = async (data: any) => {
     try {
@@ -61,6 +64,15 @@ export default function Profile() {
               ? "Update your information to help others find you"
               : "Tell us about yourself so we can help you find the perfect partner"}
           </p>
+          {profile && (
+            <div className="mt-3 flex items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground">
+                Profile completeness
+              </span>
+              <Progress value={completeness} className="h-2 w-32" />
+              <span className="text-sm font-medium tabular-nums">{completeness}%</span>
+            </div>
+          )}
         </div>
 
         <ProfileForm

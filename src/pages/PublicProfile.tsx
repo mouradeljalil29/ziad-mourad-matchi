@@ -5,23 +5,29 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SkillBadge } from "@/components/ui/skill-badge";
 import { useProfileById } from "@/hooks/useProfile";
 import { useProfile } from "@/hooks/useProfile";
-import { useCheckExistingRequest, useSendRequest } from "@/hooks/useMatchRequests";
+import {
+  useCheckExistingRequest,
+  useSendRequest,
+  useUpdateRequestStatus,
+  useRequestsSentToday,
+} from "@/hooks/useMatchRequests";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { 
-  MapPin, 
-  GraduationCap, 
-  Clock, 
-  Target, 
-  Users, 
-  Mail, 
+import {
+  MapPin,
+  GraduationCap,
+  Clock,
+  Target,
+  Users,
+  Mail,
   MessageCircle,
   ArrowLeft,
   Send,
   Check,
-  X
+  X,
+  Inbox,
 } from "lucide-react";
 import {
   Dialog,
@@ -48,32 +54,68 @@ export default function PublicProfile() {
   const { data: profile, isLoading } = useProfileById(id);
   const { data: myProfile } = useProfile();
   const { data: existingRequest } = useCheckExistingRequest(profile?.user_id);
+  const { data: requestsSentToday } = useRequestsSentToday();
   const sendRequest = useSendRequest();
-  
+  const updateStatus = useUpdateRequestStatus();
+
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [message, setMessage] = useState("");
 
   const isOwnProfile = user?.id === profile?.user_id;
-  
+
+  const isIncomingPending =
+    existingRequest?.status === "pending" &&
+    existingRequest.to_user_id === user?.id;
+  const isOutgoingPending =
+    existingRequest?.status === "pending" &&
+    existingRequest.from_user_id === user?.id;
+  const isMatched = existingRequest?.status === "accepted";
+
   const handleSendRequest = async () => {
     if (!profile) return;
-    
+
     try {
       await sendRequest.mutateAsync({
         toUserId: profile.user_id,
         message: message.trim() || undefined,
+        requestsSentToday: requestsSentToday ?? 0,
+        existingRequest: existingRequest ?? null,
       });
-      
+
       toast({
         title: "Request sent!",
         description: `Your match request has been sent to ${profile.display_name}.`,
       });
       setShowRequestDialog(false);
       setMessage("");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const msg =
+        error instanceof Error ? error.message : "Failed to send request";
       toast({
         title: "Error",
-        description: error.message || "Failed to send request",
+        description: msg,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAcceptRequest = async () => {
+    if (!existingRequest?.id) return;
+    try {
+      await updateStatus.mutateAsync({
+        requestId: existingRequest.id,
+        status: "accepted",
+      });
+      toast({
+        title: "Request accepted!",
+        description: `You're now matched with ${profile?.display_name}.`,
+      });
+    } catch (error: unknown) {
+      const msg =
+        error instanceof Error ? error.message : "Failed to accept request";
+      toast({
+        title: "Error",
+        description: msg,
         variant: "destructive",
       });
     }
@@ -239,29 +281,42 @@ export default function PublicProfile() {
 
             {/* Action buttons */}
             {!isOwnProfile && (
-              <div className="pt-4 border-t">
-                {existingRequest ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    {existingRequest.status === "pending" && (
-                      <>
-                        <Clock className="h-4 w-4" />
-                        Request pending
-                      </>
-                    )}
-                    {existingRequest.status === "accepted" && (
-                      <>
-                        <Check className="h-4 w-4 text-success" />
-                        You're matched!
-                      </>
-                    )}
-                    {existingRequest.status === "declined" && (
-                      <>
-                        <X className="h-4 w-4 text-destructive" />
-                        Request declined
-                      </>
-                    )}
+              <div className="pt-4 border-t space-y-2">
+                {isMatched && (
+                  <div className="flex items-center gap-2 text-success font-medium">
+                    <Check className="h-4 w-4" />
+                    You are matched
                   </div>
-                ) : (
+                )}
+                {isOutgoingPending && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    Request sent (pending)
+                  </div>
+                )}
+                {isIncomingPending && (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Inbox className="h-4 w-4" />
+                      This person sent you a request.
+                    </span>
+                    <Button
+                      onClick={handleAcceptRequest}
+                      disabled={updateStatus.isPending}
+                      className="gap-2 bg-success hover:bg-success/90 shrink-0"
+                    >
+                      <Check className="h-4 w-4" />
+                      Accept request
+                    </Button>
+                  </div>
+                )}
+                {existingRequest?.status === "declined" && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <X className="h-4 w-4 text-destructive" />
+                    Request declined
+                  </div>
+                )}
+                {!existingRequest && (
                   <Button
                     onClick={() => setShowRequestDialog(true)}
                     className="bg-gradient-primary hover:opacity-90 gap-2"

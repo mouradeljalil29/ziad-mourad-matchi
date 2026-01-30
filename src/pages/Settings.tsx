@@ -20,7 +20,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Eye, EyeOff, LogOut, Trash2 } from "lucide-react";
+import { Eye, EyeOff, LogOut, Database } from "lucide-react";
+import { Link } from "react-router-dom";
+import { isDevMode } from "@/lib/dev";
 
 export default function Settings() {
   const { data: profile, isLoading } = useProfile();
@@ -133,6 +135,17 @@ export default function Settings() {
                 <LogOut className="h-4 w-4" />
                 Sign Out
               </Button>
+              {isDevMode && (
+                <Link to="/seed-demo">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2"
+                  >
+                    <Database className="h-4 w-4" />
+                    Create demo data
+                  </Button>
+                </Link>
+              )}
             </div>
           </CardContent>
         </Card>

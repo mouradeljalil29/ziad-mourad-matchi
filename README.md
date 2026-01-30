@@ -1,3 +1,27 @@
+# BinomeMatch
+
+Application de mise en relation d’étudiants pour projets (binômes/équipes).  
+Match score, filtres persistants, anti-spam des demandes, complétude de profil, notes par match, mode démo.
+
+## Démarrage
+
+```sh
+npm i
+npm run dev
+```
+
+## Configuration
+
+- **`.env`** : `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`. Optionnel : `VITE_DEV_MODE=true` pour activer la route `/seed-demo` et le bouton « Create demo data » dans Paramètres.
+- **Supabase** : exécuter les migrations dans `supabase/migrations/` (profiles, match_requests, match_notes, contact_email).
+
+## Mode démo / seed
+
+- Avec `VITE_DEV_MODE=true`, la route **`/seed-demo`** et le bouton **« Create demo data »** dans Paramètres sont visibles.
+- Le seed appelle l’Edge Function `seed-demo` (à déployer avec `SUPABASE_SERVICE_ROLE_KEY`) pour créer 8–12 profils de démo.
+
+---
+
 # Welcome to your Lovable project
 
 ## Project info
