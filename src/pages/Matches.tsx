@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SkillBadge } from "@/components/ui/skill-badge";
 import { useMatches } from "@/hooks/useMatchRequests";
 import { useMatchNote, useUpsertMatchNote } from "@/hooks/useMatchNotes";
+import { MatchConversationSheet } from "@/components/messages/MatchConversationSheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Heart,
@@ -25,7 +26,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { MatchConversationSheet } from "@/components/messages/MatchConversationSheet";
 
 function MatchNoteSection({
   matchId,
@@ -76,7 +76,7 @@ function MatchNoteSection({
           ) : (
             <>
               <Textarea
-                placeholder={`Private notes about ${partnerName}…`}
+                placeholder={`Notes privées sur ${partnerName}…`}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 maxLength={2000}
@@ -88,7 +88,7 @@ function MatchNoteSection({
                 onClick={handleSave}
                 disabled={upsert.isPending}
               >
-                Save note
+                Sauvegarder
               </Button>
             </>
           )}
@@ -100,8 +100,8 @@ function MatchNoteSection({
 
 export default function Matches() {
   const { data: matches, isLoading } = useMatches();
-  const [conversationOpen, setConversationOpen] = useState<{
-    matchId: string;
+  const [chatMatch, setChatMatch] = useState<{
+    id: string;
     partnerName: string;
   } | null>(null);
 
@@ -109,9 +109,9 @@ export default function Matches() {
     <AppLayout>
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Your Matches</h1>
+          <h1 className="text-3xl font-bold">Vos Matches</h1>
           <p className="text-muted-foreground">
-            Students you've connected with for projects
+            Les étudiants avec lesquels vous êtes connecté
           </p>
         </div>
 
@@ -145,7 +145,7 @@ export default function Matches() {
                               to={`/profile/${profile?.id}`}
                               className="font-semibold text-lg hover:text-primary transition-colors"
                             >
-                              {profile?.display_name || "Unknown"}
+                              {profile?.display_name || "Inconnu"}
                             </Link>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                               {profile?.level && (
@@ -168,7 +168,7 @@ export default function Matches() {
                             ))}
                             {(profile?.skills?.length || 0) > 5 && (
                               <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-                                +{(profile?.skills?.length || 0) - 5} more
+                                +{(profile?.skills?.length || 0) - 5}
                               </span>
                             )}
                           </div>
@@ -178,36 +178,37 @@ export default function Matches() {
                             ) : (
                               <MessageCircle className="h-4 w-4 shrink-0" />
                             )}
-                            Prefers: {contactLabel}
+                            Préfère : {contactLabel}
                           </div>
 
-                          {/* Contact action */}
+                          {/* Contact actions */}
                           <div className="flex flex-wrap gap-2">
                             <Button
                               variant="default"
                               size="sm"
-                              className="gap-2 bg-gradient-primary hover:opacity-90"
+                              className="gap-2"
                               onClick={() =>
-                                setConversationOpen({
-                                  matchId: match.id,
-                                  partnerName: profile?.display_name ?? "Partner",
+                                setChatMatch({
+                                  id: match.id,
+                                  partnerName:
+                                    profile?.display_name ?? "Partenaire",
                                 })
                               }
                             >
                               <MessageCircle className="h-4 w-4" />
-                              Message
+                              Envoyer un message
                             </Button>
-                            {prefersEmail && contactEmail ? (
+                            {prefersEmail && contactEmail && (
                               <a href={`mailto:${contactEmail}`}>
                                 <Button variant="outline" size="sm" className="gap-2">
                                   <Mail className="h-4 w-4" />
                                   Email
                                 </Button>
                               </a>
-                            ) : null}
+                            )}
                             <Link to={`/profile/${profile?.id}`}>
                               <Button variant="outline" size="sm" className="gap-2 shrink-0">
-                                View Profile
+                                Voir le profil
                                 <ArrowRight className="h-4 w-4" />
                               </Button>
                             </Link>
@@ -215,7 +216,7 @@ export default function Matches() {
 
                           <MatchNoteSection
                             matchId={match.id}
-                            partnerName={profile?.display_name ?? "Partner"}
+                            partnerName={profile?.display_name ?? "Partenaire"}
                           />
                         </div>
                       </div>
@@ -230,26 +231,28 @@ export default function Matches() {
             <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <Heart className="h-8 w-8 text-primary" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No matches yet</h3>
+            <h3 className="text-lg font-semibold mb-2">Aucun match pour le moment</h3>
             <p className="text-muted-foreground mb-4">
-              When you and another student both accept each other's requests,
-              you'll be matched!
+              Quand vous et un autre étudiant acceptez mutuellement vos demandes,
+              vous serez matchés !
             </p>
             <Link to="/discover">
               <Button className="bg-gradient-primary hover:opacity-90">
-                Discover Students
+                Découvrir des étudiants
               </Button>
             </Link>
           </div>
         )}
-
-        <MatchConversationSheet
-          open={!!conversationOpen}
-          onOpenChange={(open) => !open && setConversationOpen(null)}
-          matchId={conversationOpen?.matchId ?? null}
-          partnerName={conversationOpen?.partnerName ?? ""}
-        />
       </div>
+
+      <MatchConversationSheet
+        matchId={chatMatch?.id}
+        partnerName={chatMatch?.partnerName ?? ""}
+        open={!!chatMatch}
+        onOpenChange={(open) => {
+          if (!open) setChatMatch(null);
+        }}
+      />
     </AppLayout>
   );
 }

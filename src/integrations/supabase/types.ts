@@ -159,27 +159,33 @@ export type Database = {
           match_id: string
           from_user_id: string
           text: string
-          created_at: string | null
+          created_at: string
         }
         Insert: {
           id?: string
           match_id: string
           from_user_id: string
           text: string
-          created_at?: string | null
+          created_at?: string
         }
         Update: {
           id?: string
           match_id?: string
           from_user_id?: string
           text?: string
-          created_at?: string | null
+          created_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "match_messages_match_id_fkey"
             columns: ["match_id"]
             referencedRelation: "match_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_messages_from_user_id_fkey"
+            columns: ["from_user_id"]
+            referencedRelation: "users"
             referencedColumns: ["id"]
           }
         ]

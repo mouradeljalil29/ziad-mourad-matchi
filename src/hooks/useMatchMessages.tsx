@@ -9,7 +9,7 @@ export function useMatchMessages(matchId: string | undefined) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ["match_messages", matchId, user?.id],
+    queryKey: ["match_messages", matchId],
     queryFn: async () => {
       if (!user || !matchId) return [];
 
@@ -20,9 +20,10 @@ export function useMatchMessages(matchId: string | undefined) {
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      return (data ?? []) as MatchMessage[];
+      return data as MatchMessage[];
     },
     enabled: !!user && !!matchId,
+    refetchInterval: 5000,
   });
 }
 
@@ -34,8 +35,7 @@ export function useSendMatchMessage(matchId: string | undefined) {
     mutationFn: async (text: string) => {
       if (!user || !matchId) throw new Error("Not authenticated");
 
-      const sanitized =
-        typeof text === "string" ? text.trim().slice(0, 2000) : "";
+      const sanitized = text.trim().slice(0, 2000);
       if (!sanitized) throw new Error("Message cannot be empty");
 
       const { data, error } = await supabase

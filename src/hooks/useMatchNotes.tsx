@@ -46,7 +46,7 @@ export function useUpsertMatchNote(matchId: string | undefined) {
             owner_user_id: user.id,
             note_text: sanitized || null,
           },
-          { onConflict: ["match_id", "owner_user_id"] }
+          { onConflict: "match_id,owner_user_id" }
         )
         .select()
         .single();

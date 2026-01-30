@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -7,154 +7,135 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useMatchMessages, useSendMatchMessage } from "@/hooks/useMatchMessages";
 import { useAuth } from "@/hooks/useAuth";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Send } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { Send, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MatchConversationSheetProps {
+  matchId: string | undefined;
+  partnerName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  matchId: string | null;
-  partnerName: string;
 }
 
 export function MatchConversationSheet({
-  open,
-  onOpenChange,
   matchId,
   partnerName,
+  open,
+  onOpenChange,
 }: MatchConversationSheetProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { data: messages, isLoading } = useMatchMessages(open ? matchId : undefined);
+  const sendMessage = useSendMatchMessage(matchId);
   const [draft, setDraft] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  const { data: messages, isLoading } = useMatchMessages(
-    open && matchId ? matchId : undefined
-  );
-  const sendMessage = useSendMatchMessage(matchId ?? undefined);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open && messages && messages.length > 0) {
-      scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [open, messages?.length]);
+  }, [messages]);
 
   const handleSend = async () => {
     const text = draft.trim();
-    if (!text || !matchId) return;
+    if (!text) return;
+
     try {
       await sendMessage.mutateAsync(text);
       setDraft("");
-      setTimeout(() => {
-        scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 100);
-    } catch (err) {
-      toast({
-        title: "Erreur",
-        description:
-          err instanceof Error ? err.message : "Impossible d'envoyer le message",
-        variant: "destructive",
-      });
+    } catch {
+      // error handled by mutation
     }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex w-full flex-col sm:max-w-md p-0"
-      >
-        <SheetHeader className="border-b px-4 py-3">
-          <SheetTitle className="text-left">
-            Messagerie — {partnerName}
+      <SheetContent className="flex flex-col sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5" />
+            {partnerName}
           </SheetTitle>
         </SheetHeader>
 
-        <ScrollArea
-          ref={scrollRef}
-          className="flex-1 px-4 py-3"
-          style={{ maxHeight: "calc(100vh - 180px)" }}
-        >
+        <div className="flex-1 overflow-y-auto py-4 space-y-3 min-h-0">
           {isLoading ? (
             <div className="space-y-3">
-              <Skeleton className="h-12 w-3/4" />
-              <Skeleton className="h-12 w-2/3 ml-auto" />
-              <Skeleton className="h-12 w-4/5" />
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-12 w-3/4" />
+              ))}
             </div>
-          ) : !messages || messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-              <p className="text-sm">Aucun message pour l’instant.</p>
-              <p className="text-xs mt-1">Envoyez le premier message.</p>
-            </div>
-          ) : (
-            <div className="space-y-3 pb-4">
-              {messages.map((msg) => {
-                const isMe = msg.from_user_id === user?.id;
-                return (
+          ) : messages && messages.length > 0 ? (
+            messages.map((msg) => {
+              const isMe = msg.from_user_id === user?.id;
+              return (
+                <div
+                  key={msg.id}
+                  className={cn(
+                    "flex flex-col max-w-[80%]",
+                    isMe ? "ml-auto items-end" : "mr-auto items-start"
+                  )}
+                >
                   <div
-                    key={msg.id}
                     className={cn(
-                      "flex flex-col max-w-[85%]",
-                      isMe ? "ml-auto items-end" : "mr-auto items-start"
+                      "rounded-2xl px-4 py-2 text-sm",
+                      isMe
+                        ? "bg-primary text-primary-foreground rounded-br-md"
+                        : "bg-muted rounded-bl-md"
                     )}
                   >
-                    <div
-                      className={cn(
-                        "rounded-2xl px-3 py-2 text-sm break-words",
-                        isMe
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      )}
-                    >
-                      {msg.text}
-                    </div>
-                    <span
-                      className={cn(
-                        "text-xs text-muted-foreground mt-0.5",
-                        isMe ? "text-right" : "text-left"
-                      )}
-                    >
-                      {msg.created_at
-                        ? format(
-                            new Date(msg.created_at),
-                            "dd MMM à HH:mm",
-                            { locale: fr }
-                          )
-                        : ""}
-                    </span>
+                    {msg.text}
                   </div>
-                );
-              })}
-              <div ref={scrollRef} />
+                  <span className="text-[10px] text-muted-foreground mt-1 px-1">
+                    {formatTime(msg.created_at)}
+                  </span>
+                </div>
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+              <MessageCircle className="h-10 w-10 mb-3 opacity-30" />
+              <p className="text-sm">Aucun message pour le moment.</p>
+              <p className="text-xs mt-1">
+                Envoyez le premier message !
+              </p>
             </div>
           )}
-        </ScrollArea>
+          <div ref={bottomRef} />
+        </div>
 
-        <div className="border-t p-3 flex gap-2">
+        <div className="border-t pt-3 flex gap-2">
           <Input
-            placeholder="Écrire un message…"
+            placeholder="Votre message..."
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
+            onKeyDown={handleKeyDown}
             maxLength={2000}
-            className="flex-1"
+            disabled={sendMessage.isPending}
           />
           <Button
             size="icon"
             onClick={handleSend}
-            disabled={!draft.trim() || sendMessage.isPending}
+            disabled={sendMessage.isPending || !draft.trim()}
             className="shrink-0"
           >
             <Send className="h-4 w-4" />
