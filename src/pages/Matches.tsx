@@ -25,6 +25,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { MatchConversationSheet } from "@/components/messages/MatchConversationSheet";
 
 function MatchNoteSection({
   matchId,
@@ -99,6 +100,10 @@ function MatchNoteSection({
 
 export default function Matches() {
   const { data: matches, isLoading } = useMatches();
+  const [conversationOpen, setConversationOpen] = useState<{
+    matchId: string;
+    partnerName: string;
+  } | null>(null);
 
   return (
     <AppLayout>
@@ -178,18 +183,28 @@ export default function Matches() {
 
                           {/* Contact action */}
                           <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="gap-2 bg-gradient-primary hover:opacity-90"
+                              onClick={() =>
+                                setConversationOpen({
+                                  matchId: match.id,
+                                  partnerName: profile?.display_name ?? "Partner",
+                                })
+                              }
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                              Message
+                            </Button>
                             {prefersEmail && contactEmail ? (
                               <a href={`mailto:${contactEmail}`}>
                                 <Button variant="outline" size="sm" className="gap-2">
                                   <Mail className="h-4 w-4" />
-                                  Contact (email)
+                                  Email
                                 </Button>
                               </a>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">
-                                In-app: use Notes below to keep track of this match.
-                              </span>
-                            )}
+                            ) : null}
                             <Link to={`/profile/${profile?.id}`}>
                               <Button variant="outline" size="sm" className="gap-2 shrink-0">
                                 View Profile
@@ -227,6 +242,13 @@ export default function Matches() {
             </Link>
           </div>
         )}
+
+        <MatchConversationSheet
+          open={!!conversationOpen}
+          onOpenChange={(open) => !open && setConversationOpen(null)}
+          matchId={conversationOpen?.matchId ?? null}
+          partnerName={conversationOpen?.partnerName ?? ""}
+        />
       </div>
     </AppLayout>
   );

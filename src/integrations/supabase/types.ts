@@ -153,6 +153,37 @@ export type Database = {
           }
         ]
       }
+      match_messages: {
+        Row: {
+          id: string
+          match_id: string
+          from_user_id: string
+          text: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          match_id: string
+          from_user_id: string
+          text: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          match_id?: string
+          from_user_id?: string
+          text?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_messages_match_id_fkey"
+            columns: ["match_id"]
+            referencedRelation: "match_requests"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
